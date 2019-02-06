@@ -10,6 +10,7 @@ module Hpack.Util (
 , toModule
 , getModuleFilesRecursive
 , tryReadFile
+, QuotableFilePath (..)
 , expandGlobs
 , sort
 , lexicographically
@@ -108,32 +109,37 @@ data GlobResult = GlobResult {
 , _globResultFiles :: [FilePath]
 }
 
-expandGlobs :: String -> FilePath -> [String] -> IO ([String], [FilePath])
+data QuotableFilePath
+  = NoQuote FilePath
+  | MustQuote FilePath
+  deriving (Show, Eq) -- BE CAREFUL!
+
+quotableFilePath :: FilePath -> QuotableFilePath
+quotableFilePath fp
+  | any (\x -> isSpace x || x == ',') fp
+              = MustQuote fp
+  | otherwise = NoQuote fp
+
+expandGlobs :: String -> FilePath -> [String] -> IO ([String], [QuotableFilePath])
 expandGlobs name dir patterns = do
   files <- globDir compiledPatterns dir >>= mapM removeDirectories
   let
     results :: [GlobResult]
-    results = map (uncurry $ uncurry GlobResult) $ zip (zip patterns compiledPatterns) (map sort files)
-  return (combineResults results)
+    results = zipWith3 GlobResult patterns compiledPatterns (map sort files)
+  pure $ combineResults results
   where
-    combineResults :: [GlobResult] -> ([String], [FilePath])
+    combineResults :: [GlobResult] -> ([String], [QuotableFilePath])
     combineResults = bimap concat (nub . concat) . unzip . map fromResult
 
-    fromResult :: GlobResult -> ([String], [FilePath])
+    fromResult :: GlobResult -> ([String], [QuotableFilePath])
     fromResult (GlobResult pattern compiledPattern files) = case files of
       [] -> (warning, literalFile)
-      xs -> ([], map (quoteSpecial . normalize) xs)
+      xs -> ([], map (quotableFilePath . normalize) xs)
       where
         warning = [warn pattern compiledPattern]
         literalFile
-          | isLiteral compiledPattern = [pattern]
+          | isLiteral compiledPattern = [quotableFilePath pattern]
           | otherwise = []
-
-    quoteSpecial :: FilePath -> FilePath
-    quoteSpecial fp
-      | any (\x -> isSpace x || x == ',') fp
-        = show fp
-      | otherwise      = fp
 
     normalize :: FilePath -> FilePath
     normalize = toPosixFilePath . makeRelative dir

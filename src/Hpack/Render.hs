@@ -66,9 +66,9 @@ renderPackageWith settings headerFieldsAlignment existingFieldOrder sectionsFiel
     packageFields :: [Element]
     packageFields = addVerbatim packageVerbatim . sortFieldsBy existingFieldOrder $
       headerFields ++ [
-        Field "extra-source-files" (LineSeparatedList packageExtraSourceFiles)
-      , Field "extra-doc-files" (LineSeparatedList packageExtraDocFiles)
-      , Field "data-files" (LineSeparatedList packageDataFiles)
+        Field "extra-source-files" (LineSeparatedList $ map quote packageExtraSourceFiles)
+      , Field "extra-doc-files" (LineSeparatedList $ map quote packageExtraDocFiles)
+      , Field "data-files" (LineSeparatedList $ map quote packageDataFiles)
       ] ++ maybe [] (return . Field "data-dir" . Literal) packageDataDir
 
     sourceRepository :: [Element]
@@ -233,9 +233,9 @@ renderSection renderSectionData extraFieldsStart extraFieldsEnd Section{..} = ad
   , renderCxxOptions sectionCxxOptions
   , renderDirectories "include-dirs" sectionIncludeDirs
   , Field "install-includes" (LineSeparatedList sectionInstallIncludes)
-  , Field "c-sources" (LineSeparatedList sectionCSources)
-  , Field "cxx-sources" (LineSeparatedList sectionCxxSources)
-  , Field "js-sources" (LineSeparatedList sectionJsSources)
+  , Field "c-sources" (LineSeparatedList $ map quote sectionCSources)
+  , Field "cxx-sources" (LineSeparatedList $ map quote sectionCxxSources)
+  , Field "js-sources" (LineSeparatedList $ map quote sectionJsSources)
   , renderDirectories "extra-lib-dirs" sectionExtraLibDirs
   , Field "extra-libraries" (LineSeparatedList sectionExtraLibraries)
   , renderDirectories "extra-frameworks-dirs" sectionExtraFrameworksDirs
@@ -248,6 +248,10 @@ renderSection renderSectionData extraFieldsStart extraFieldsEnd Section{..} = ad
   ++ maybe [] (return . renderBuildable) sectionBuildable
   ++ map (renderConditional renderSectionData) sectionConditionals
   ++ extraFieldsEnd
+
+quote :: QuotableFilePath -> FilePath
+quote (NoQuote fp) = fp
+quote (MustQuote fp) = show fp
 
 addVerbatim :: [Verbatim] -> [Element] -> [Element]
 addVerbatim verbatim fields = filterVerbatim verbatim fields ++ renderVerbatim verbatim

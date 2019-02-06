@@ -353,13 +353,15 @@ instance (Semigroup cSources, Semigroup cxxSources, Semigroup jsSources) => Semi
   , commonOptionsVerbatim = commonOptionsVerbatim a <> commonOptionsVerbatim b
   }
 
+-- These are the globs that will match source files.
 type ParseCSources = Maybe (List FilePath)
 type ParseCxxSources = Maybe (List FilePath)
 type ParseJsSources = Maybe (List FilePath)
 
-type CSources = [FilePath]
-type CxxSources = [FilePath]
-type JsSources = [FilePath]
+-- These are the matched source files.
+type CSources = [QuotableFilePath]
+type CxxSources = [QuotableFilePath]
+type JsSources = [QuotableFilePath]
 
 type WithCommonOptions cSources cxxSources jsSources a = Product (CommonOptions cSources cxxSources jsSources a) a
 
@@ -829,9 +831,9 @@ data Package = Package {
 , packageLicenseFile :: [FilePath]
 , packageTestedWith :: Maybe String
 , packageFlags :: [Flag]
-, packageExtraSourceFiles :: [FilePath]
-, packageExtraDocFiles :: [FilePath]
-, packageDataFiles :: [FilePath]
+, packageExtraSourceFiles :: [QuotableFilePath]
+, packageExtraDocFiles :: [QuotableFilePath]
+, packageDataFiles :: [QuotableFilePath]
 , packageDataDir :: Maybe FilePath
 , packageSourceRepository :: Maybe SourceRepository
 , packageCustomSetup :: Maybe CustomSetup
@@ -877,10 +879,10 @@ data Section a = Section {
 , sectionGhcjsOptions :: [GhcjsOption]
 , sectionCppOptions :: [CppOption]
 , sectionCcOptions :: [CcOption]
-, sectionCSources :: [FilePath]
+, sectionCSources :: [QuotableFilePath]
 , sectionCxxOptions :: [CxxOption]
-, sectionCxxSources :: [FilePath]
-, sectionJsSources :: [FilePath]
+, sectionCxxSources :: [QuotableFilePath]
+, sectionJsSources :: [QuotableFilePath]
 , sectionExtraLibDirs :: [FilePath]
 , sectionExtraLibraries :: [FilePath]
 , sectionExtraFrameworksDirs :: [FilePath]
@@ -1182,10 +1184,9 @@ expandForeignSources dir = Traverse {
   , traverseJsSources = expand "js-sources"
   }
   where
-    expand fieldName xs = do
-      expandGlobs fieldName dir (fromMaybeList xs)
+    expand fieldName xs = expandGlobs fieldName dir (fromMaybeList xs)
 
-expandGlobs :: MonadIO m => String -> FilePath -> [String] -> Warnings m [FilePath]
+expandGlobs :: MonadIO m => String -> FilePath -> [String] -> Warnings m [QuotableFilePath]
 expandGlobs name dir patterns = do
   (warnings, files) <- liftIO $ Util.expandGlobs name dir patterns
   tell warnings
